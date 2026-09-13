@@ -1,0 +1,60 @@
+spring:
+    application:
+        name: developteca-api
+
+    # ============= DATABASE =============
+    datasource:
+        url: jdbc:postgresql://localhost:5432/developteca_db
+        username: postgres
+        password: 1234567
+        driver-class-name: org.postgresql.Driver
+
+    # ============= JPA/ HIBERNATE =============
+    jpa:
+        hibernate:
+            ddl-auto: update # Crea/actualiza tablas automáticamente
+        show-sql: true
+        properties:
+            hibernate:
+                format_sql: true
+                dialect: org.hibernate.dialect.PostgreSQLDialect
+
+    web:
+        error:
+            include-message: always
+            include-binding-errors: always
+
+    # ============= MAIL (placeholder local, no envía correos reales) =============
+    mail:
+        host: localhost
+        port: 1025
+        username: developteca
+        password: developteca
+        properties:
+            mail:
+                smtp:
+                    auth: true
+                    starttls:
+                        enable: false
+
+# ============= JWT CONFIGURATION =============
+jwt:
+    secret: tu_super_secret_key_minimo_256caracteres_cambiar_en_produccion
+    expiration: 86400000  # 24 horas en milisegundos
+
+# ============ LOGGING =============
+logging:
+    level:
+        root: INFO
+        com.developteca: DEBUG
+        org.springframework.security: DEBUG
+
+# ============== SERVER ====================
+server:
+    port: 8080
+
+app:
+    upload:
+        dir: uploads
+        max-file-size: 5242880
+        allowed-types: image/jpeg,image/png,image/webp

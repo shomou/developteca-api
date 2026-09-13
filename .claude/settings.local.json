@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find \"$HOME/.vscode/extensions\" -maxdepth 1 -iname \"vmware.vscode-spring-boot*\" 2>/dev/null)",
+      "Read(//c/Users/jayr_/.vscode/extensions/**)",
+      "Bash(pkill -f \"psql\")",
+      "Bash(PGPASSWORD=1234567 psql -h localhost -U postgres -d developteca_db -c \"\\\\d articles\")"
+    ]
+  }
+}
