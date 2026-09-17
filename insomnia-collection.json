@@ -215,6 +215,22 @@
       "metaSortKey": -2
     },
     {
+      "_id": "req_articles_manage",
+      "_type": "request",
+      "parentId": "fld_articles_admin",
+      "name": "List for Management (incluye borradores)",
+      "description": "GET /api/v1/articles/manage — requiere token. Un ADMIN/SUPER_ADMIN ve TODOS los artículos de todos los autores; un usuario normal solo los suyos. A diferencia del listado público, incluye DRAFT y ARCHIVED. El filtro status es opcional (DRAFT | PUBLISHED | ARCHIVED). OJO: sin token debe responder 401 — si responde con la lista, el matcher de SecurityConfig quedó después del wildcard GET /api/v1/articles/** y tus borradores están públicos.",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/v1/articles/manage",
+      "parameters": [
+        { "name": "page", "value": "0" },
+        { "name": "size", "value": "10" },
+        { "name": "status", "value": "DRAFT", "disabled": true }
+      ],
+      "authentication": { "type": "bearer", "token": "{{ _.token }}", "disabled": false },
+      "metaSortKey": -7
+    },
+    {
       "_id": "req_articles_dashboard_stats",
       "_type": "request",
       "parentId": "fld_articles_admin",
