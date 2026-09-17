@@ -120,13 +120,24 @@ public class ArticleService {
     @Transactional
     public ArticleDetailResponse getBySlug(String slug){
         Article article = articleRepository.findBySlug(slug)
+                .filter(a -> a.getStatus() == ArticleStatus.PUBLISHED)
                 .orElseThrow(() -> new ApiException("Articulo no encontrado"));
         
             article.setViewsCount(article.getViewsCount() + 1);
             articleRepository.save(article);
 
             return mapToDetailResponse(article);
-    } 
+    }
+    // ============ OBTENER ARTICULO PARA EDICION (por id, sin sumar vistas, con permisos) ============
+    public ArticleDetailResponse getForEdit(Long articleId, User currentUser) {
+        Article article = articleRepository.findById(articleId)
+                .orElseThrow(() -> new ApiException("Artículo no encontrado"));
+
+        checkOwnershipOrAdmin(article, currentUser);
+
+        return mapToDetailResponse(article);
+    }
+
     
     // ============ LISTAR ARTICULOS PUBLICADOS (público, paginado) ====================
     public Page<ArticleSummaryResponse> listPuvlished(String categorySlug, String search, Pageable pageable){
@@ -215,6 +226,15 @@ public class ArticleService {
         if (!isOwner && !isAdmin) {
             throw new ApiException("No tienes permiso para modificar este artículo");
         }
+    }
+
+    // ============ LISTAR ARTICULOS PARA GESTION (admin ve todos, autor solo los suyos) ==========
+    public Page<ArticleSummaryResponse> listForManagement(User currentUser, ArticleStatus status, Pageable pageable) {
+        boolean isAdmin = currentUser.getRole() == Role.ADMIN || currentUser.getRole() == Role.SUPER_ADMIN;
+        Long authorId = isAdmin ? null : currentUser.getId();
+
+        Page<Article> articles = articleRepository.findForManagement(authorId, status, pageable);
+        return articles.map(this::mapToSummaryResponse);
     }
 
     private String ensureUniqueSlug(String baseSlug) {

@@ -30,7 +30,13 @@ public interface ArticleRepository extends JpaRepository<Article, Long>{
             Pageable pageable
     );
 
-    Page<Article> findByAuthor(Long authorId, Pageable pageable);
+    @Query("SELECT a FROM Article a WHERE (:authorId IS NULL OR a.author.id = :authorId) " +
+            "AND (:status IS NULL OR a.status = :status)")
+    Page<Article> findForManagement(
+            @Param("authorId") Long id,
+            @Param("status") ArticleStatus status,
+            Pageable pageable
+            );
 
     long countByStatus(ArticleStatus status);
 

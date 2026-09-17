@@ -87,6 +87,7 @@ public class SecurityConfig {
                 
                 // IMPORTANTE: este matcher específico va ANTES del genérico de abajo
                 .requestMatchers(HttpMethod.GET, "/api/v1/articles/stats/dashboard").authenticated()
+                .requestMatchers(HttpMethod.GET, "/api/v1/articles/manage/**").authenticated()
 
                 // Endpoints públicos de lectura
                 .requestMatchers(HttpMethod.GET, "/api/v1/categories").permitAll()

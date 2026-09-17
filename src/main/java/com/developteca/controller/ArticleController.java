@@ -1,5 +1,6 @@
 package com.developteca.controller;
 
+import com.developteca.entity.ArticleStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -168,6 +169,39 @@ public class ArticleController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
                 new ApiResponse(false, e.getMessage(), null)
             );
+        }
+    }
+
+    // ============ LISTAR MIS ARTICULOS / TODOS SI SOY ADMIN (requiere autenticación) =============
+    @GetMapping("/manage")
+    public ResponseEntity<?> listForManagement(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) ArticleStatus status
+    ) {
+        try {
+            User currentUser = securityUtil.getCurrentUser();
+            Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+
+            Page<ArticleSummaryResponse> result = articleService.listForManagement(currentUser, status, pageable);
+
+            return ResponseEntity.ok(new ApiResponse(true, "Artículos obtenidos", result));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                    new ApiResponse(false, e.getMessage(), null));
+        }
+    }
+
+    // ============ OBTENER ARTICULO PARA EDITAR (requiere autenticación) =============
+    @GetMapping("/manage/{id}")
+    public ResponseEntity<?> getForEdit(@PathVariable Long id) {
+        try {
+            User currentUser = securityUtil.getCurrentUser();
+            ArticleDetailResponse article = articleService.getForEdit(id, currentUser);
+            return ResponseEntity.ok(new ApiResponse(true, "Artículo obtenido", article));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                    new ApiResponse(false, e.getMessage(), null));
         }
     }
 }
