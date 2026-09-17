@@ -28,6 +28,7 @@ import com.developteca.exception.ApiException;
 import com.developteca.repository.ArticleImageRepository;
 import com.developteca.repository.ArticleRepository;
 import com.developteca.repository.CategoryRepository;
+import com.developteca.util.MarkdownUtil;
 import com.developteca.util.SlugUtil;
 
 import jakarta.transaction.Transactional;
@@ -269,9 +270,10 @@ public class ArticleService {
                         img.getIsFeatured(), img.getOrderIndex()))
                 .orElse(null);
 
-        String excerpt = article.getContent().length() > 200
-                ? article.getContent().substring(0, 200) + "..."
-                : article.getContent();
+        String plain = MarkdownUtil.toPlainText(article.getContent());
+        String excerpt = plain.length() > 200
+                ? plain.substring(0, 200) + "..."
+                : plain;
 
         return new ArticleSummaryResponse(
                 article.getId(), article.getTitle(), article.getSlug(), excerpt,

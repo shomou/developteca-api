@@ -78,6 +78,8 @@ This is the single most important gotcha in this codebase. Spring Boot 4.1's `sp
 
 `application.yml` now sets `spring.servlet.multipart.max-file-size: 5MB` / `max-request-size: 10MB`, matching `app.upload.max-file-size` — previously Spring's 1MB default rejected larger uploads before `ImageService` ran. `uploads/` (where `ImageService` writes files) is gitignored; it's user content, not code.
 
+**Article content is Markdown.** The API stores and returns it raw; the frontend renders it. The only backend awareness is `MarkdownUtil.toPlainText` (regex-based, deliberately approximate), used by `ArticleService.mapToSummaryResponse` so the 200-char card `excerpt` doesn't show `##`, backticks or fence contents. It strips code blocks entirely rather than including their text — code is never a good summary.
+
 **Known gap:** there is no way to mark an already-uploaded image as featured — `isFeatured` is only settable at upload time (`addImage` un-features the previous one). To change an article's cover today you delete and re-upload. A `PUT /articles/{id}/images/{imageId}/featured` reusing `addImage`'s un-feature logic would close this; deliberately deferred.
 
 All authenticated endpoints (everything but list/detail) call `SecurityUtil.getCurrentUser()` (renamed from the earlier `getCurrentuser()` typo) to resolve the acting `User`, then delegate ownership/role checks to `ArticleService.checkOwnershipOrAdmin` (author, or `Role.ADMIN`/`Role.SUPER_ADMIN`) — `SecurityConfig` itself has no role-based matchers, just `anyRequest().authenticated()` for anything not explicitly `permitAll()`'d. `SecurityConfig` now also permits `GET /api/v1/articles`, `GET /api/v1/articles/**`, and `/uploads/**` (matching `WebConfig`'s static resource handler for uploaded images).
