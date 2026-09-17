@@ -89,6 +89,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/v1/articles/stats/dashboard").authenticated()
 
                 // Endpoints públicos de lectura
+                .requestMatchers(HttpMethod.GET, "/api/v1/categories").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/articles").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/articles/**").permitAll()
 
@@ -104,4 +105,5 @@ public class SecurityConfig {
 
         return http.build();
     }
+
 }
