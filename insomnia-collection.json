@@ -1,0 +1,331 @@
+{
+  "_type": "export",
+  "__export_format": 4,
+  "__export_date": "2026-09-13T00:00:00.000Z",
+  "__export_source": "developteca.manual-collection",
+  "resources": [
+    {
+      "_id": "wrk_developteca",
+      "_type": "workspace",
+      "parentId": null,
+      "name": "Developteca API",
+      "description": "Colección para developteca-api (Spring Boot 4.1, JWT, /api/v1). Generada a partir del código real de AuthController y ArticleController.",
+      "scope": "collection"
+    },
+    {
+      "_id": "env_developteca_base",
+      "_type": "environment",
+      "parentId": "wrk_developteca",
+      "name": "Base Environment",
+      "data": {
+        "base_url": "http://localhost:8080",
+        "token": ""
+      },
+      "dataPropertyOrder": { "&": ["base_url", "token"] },
+      "color": null,
+      "isPrivate": false,
+      "metaSortKey": 0
+    },
+
+    {
+      "_id": "fld_auth",
+      "_type": "request_group",
+      "parentId": "wrk_developteca",
+      "name": "Auth",
+      "description": "Endpoints públicos de /api/v1/auth. No requieren token.",
+      "metaSortKey": -3
+    },
+    {
+      "_id": "req_auth_register",
+      "_type": "request",
+      "parentId": "fld_auth",
+      "name": "Register",
+      "description": "POST /api/v1/auth/register. Body validado: email (@Email), password, firstName, lastName. Rol por defecto USER, emailVerified=false, se envía email de verificación (simulado, ver spring.mail en application.yml).",
+      "method": "POST",
+      "url": "{{ _.base_url }}/api/v1/auth/register",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"email\": \"juan.perez@example.com\",\n  \"password\": \"Password123!\",\n  \"firstName\": \"Juan\",\n  \"lastName\": \"Pérez\"\n}"
+      },
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "authentication": {},
+      "metaSortKey": -3
+    },
+    {
+      "_id": "req_auth_login",
+      "_type": "request",
+      "parentId": "fld_auth",
+      "name": "Login",
+      "description": "POST /api/v1/auth/login. Funciona aunque emailVerified sea false. Copia el 'token' de la respuesta (data.token) al valor 'token' del Base Environment para usarlo en los endpoints protegidos.",
+      "method": "POST",
+      "url": "{{ _.base_url }}/api/v1/auth/login",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"email\": \"juan.perez@example.com\",\n  \"password\": \"Password123!\"\n}"
+      },
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "authentication": {},
+      "metaSortKey": -2
+    },
+    {
+      "_id": "req_auth_verify_email",
+      "_type": "request",
+      "parentId": "fld_auth",
+      "name": "Verify Email",
+      "description": "POST /api/v1/auth/verify-email?token=... El token es un UUID que expira en 24h (se genera en el registro; en desarrollo revisa la consola del backend ya que el envío real de correo está simulado).",
+      "method": "POST",
+      "url": "{{ _.base_url }}/api/v1/auth/verify-email",
+      "parameters": [
+        { "name": "token", "value": "" }
+      ],
+      "body": {},
+      "authentication": {},
+      "metaSortKey": -1
+    },
+
+    {
+      "_id": "fld_articles_public",
+      "_type": "request_group",
+      "parentId": "wrk_developteca",
+      "name": "Articles (Público)",
+      "description": "Endpoints públicos de /api/v1/articles — no requieren token.",
+      "metaSortKey": -2
+    },
+    {
+      "_id": "req_articles_list",
+      "_type": "request",
+      "parentId": "fld_articles_public",
+      "name": "List Published Articles",
+      "description": "GET /api/v1/articles — paginado, solo status=PUBLISHED. category/search son opcionales (slug de categoría y texto de búsqueda en el título).",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/v1/articles",
+      "parameters": [
+        { "name": "page", "value": "0" },
+        { "name": "size", "value": "10" },
+        { "name": "category", "value": "", "disabled": true },
+        { "name": "search", "value": "", "disabled": true }
+      ],
+      "authentication": {},
+      "metaSortKey": -3
+    },
+    {
+      "_id": "req_articles_get_by_slug",
+      "_type": "request",
+      "parentId": "fld_articles_public",
+      "name": "Get Article by Slug",
+      "description": "GET /api/v1/articles/{slug} — incrementa el contador de vistas. Reemplaza 'mi-articulo-slug' por un slug real de tu base de datos.",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/v1/articles/mi-articulo-slug",
+      "authentication": {},
+      "metaSortKey": -2
+    },
+
+    {
+      "_id": "req_categories_list",
+      "_type": "request",
+      "parentId": "fld_articles_public",
+      "name": "List Categories",
+      "description": "GET /api/v1/categories — público. Las 5 categorías las siembra DataSeeder al primer arranque (Backend, Frontend, DevOps, Bases de Datos, Buenas Prácticas). Útil para conocer los ids reales al crear artículos y los slugs para el filtro. No hay CRUD de categorías todavía.",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/v1/categories",
+      "authentication": {},
+      "metaSortKey": -1
+    },
+
+    {
+      "_id": "fld_articles_admin",
+      "_type": "request_group",
+      "parentId": "wrk_developteca",
+      "name": "Articles (Autenticado)",
+      "description": "Requieren JWT Bearer. Todos usan la variable de entorno 'token' (llénala tras hacer Login). El autor original o cualquier ADMIN/SUPER_ADMIN puede editar/eliminar.",
+      "metaSortKey": -1
+    },
+    {
+      "_id": "req_articles_create",
+      "_type": "request",
+      "parentId": "fld_articles_admin",
+      "name": "Create Article",
+      "description": "POST /api/v1/articles. categoryId debe existir (DataSeeder crea 5 categorías fijas al iniciar: Backend, Frontend, DevOps, Bases de Datos, Buenas Prácticas — probablemente IDs 1-5 en ese orden, pero no hay endpoint GET /categories todavía; verifica en tu BD si falla). status por defecto es DRAFT si lo omites.",
+      "method": "POST",
+      "url": "{{ _.base_url }}/api/v1/articles",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"title\": \"Mi primer artículo\",\n  \"content\": \"Contenido de prueba del artículo.\",\n  \"categoryId\": 1,\n  \"status\": \"DRAFT\"\n}"
+      },
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "authentication": { "type": "bearer", "token": "{{ _.token }}", "disabled": false },
+      "metaSortKey": -6
+    },
+    {
+      "_id": "req_articles_update",
+      "_type": "request",
+      "parentId": "fld_articles_admin",
+      "name": "Update Article",
+      "description": "PUT /api/v1/articles/{id}. A diferencia de Create, 'status' es obligatorio aquí (@NotNull). Reemplaza el {id} en la URL.",
+      "method": "PUT",
+      "url": "{{ _.base_url }}/api/v1/articles/1",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"title\": \"Mi primer artículo (editado)\",\n  \"content\": \"Contenido actualizado.\",\n  \"categoryId\": 1,\n  \"status\": \"PUBLISHED\"\n}"
+      },
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "authentication": { "type": "bearer", "token": "{{ _.token }}", "disabled": false },
+      "metaSortKey": -5
+    },
+    {
+      "_id": "req_articles_delete",
+      "_type": "request",
+      "parentId": "fld_articles_admin",
+      "name": "Delete Article",
+      "description": "DELETE /api/v1/articles/{id}. Responde 204 sin body si tiene éxito.",
+      "method": "DELETE",
+      "url": "{{ _.base_url }}/api/v1/articles/1",
+      "authentication": { "type": "bearer", "token": "{{ _.token }}", "disabled": false },
+      "metaSortKey": -4
+    },
+    {
+      "_id": "req_articles_upload_image",
+      "_type": "request",
+      "parentId": "fld_articles_admin",
+      "name": "Upload Article Image",
+      "description": "POST /api/v1/articles/{id}/images — multipart/form-data. Máx 5MB, tipos permitidos: image/jpeg, image/png, image/webp (ver app.upload.* en application.yml). Nota: no hay spring.servlet.multipart.* configurado, así que el límite real por defecto de Spring es 1MB — archivos más grandes se rechazan antes de llegar al backend.",
+      "method": "POST",
+      "url": "{{ _.base_url }}/api/v1/articles/1/images",
+      "body": {
+        "mimeType": "multipart/form-data",
+        "params": [
+          { "name": "file", "type": "file", "fileName": "" },
+          { "name": "altText", "value": "Descripción de la imagen" },
+          { "name": "isFeatured", "value": "false" },
+          { "name": "orderIndex", "value": "0" }
+        ]
+      },
+      "authentication": { "type": "bearer", "token": "{{ _.token }}", "disabled": false },
+      "metaSortKey": -3
+    },
+    {
+      "_id": "req_articles_delete_image",
+      "_type": "request",
+      "parentId": "fld_articles_admin",
+      "name": "Delete Article Image",
+      "description": "DELETE /api/v1/articles/{id}/images/{imageId}.",
+      "method": "DELETE",
+      "url": "{{ _.base_url }}/api/v1/articles/1/images/1",
+      "authentication": { "type": "bearer", "token": "{{ _.token }}", "disabled": false },
+      "metaSortKey": -2
+    },
+    {
+      "_id": "req_articles_dashboard_stats",
+      "_type": "request",
+      "parentId": "fld_articles_admin",
+      "name": "Dashboard Stats",
+      "description": "GET /api/v1/articles/stats/dashboard — usado por el dashboard admin del frontend (Fase 8, ya implementada). Devuelve totales de artículos por estado, vistas, comentarios y rating promedio.",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/v1/articles/stats/dashboard",
+      "authentication": { "type": "bearer", "token": "{{ _.token }}", "disabled": false },
+      "metaSortKey": -1
+    },
+
+    {
+      "_id": "fld_comments",
+      "_type": "request_group",
+      "parentId": "wrk_developteca",
+      "name": "Comments (Sprint 4)",
+      "description": "Comentarios anidados sobre /api/v1/articles/{articleId}/comments. Listar es público; crear/moderar/eliminar requieren token. Un comentario nace APPROVED (visible de inmediato); un admin puede pasarlo a REJECTED para ocultarlo sin borrarlo.",
+      "metaSortKey": 0
+    },
+    {
+      "_id": "req_comments_list",
+      "_type": "request",
+      "parentId": "fld_comments",
+      "name": "List Comments (tree)",
+      "description": "GET /api/v1/articles/{articleId}/comments — público. Devuelve los comentarios APPROVED organizados en árbol (cada uno trae su lista 'replies'). Habilita includeRejected=true Y manda token de admin para ver también los ocultos (vienen con status REJECTED); si no eres admin el parámetro se ignora en silencio. Reemplaza el {articleId} en la URL.",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/v1/articles/1/comments",
+      "parameters": [
+        { "name": "includeRejected", "value": "true", "disabled": true }
+      ],
+      "authentication": { "type": "bearer", "token": "{{ _.token }}", "disabled": true },
+      "metaSortKey": -4
+    },
+    {
+      "_id": "req_comments_create",
+      "_type": "request",
+      "parentId": "fld_comments",
+      "name": "Create Comment",
+      "description": "POST /api/v1/articles/{articleId}/comments — requiere token. 'parentCommentId' es opcional: omítelo (o pon null) para un comentario raíz, o pon el id de otro comentario del MISMO artículo para responderlo.",
+      "method": "POST",
+      "url": "{{ _.base_url }}/api/v1/articles/1/comments",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"content\": \"Muy buen artículo, gracias por compartirlo.\",\n  \"parentCommentId\": null\n}"
+      },
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "authentication": { "type": "bearer", "token": "{{ _.token }}", "disabled": false },
+      "metaSortKey": -3
+    },
+    {
+      "_id": "req_comments_moderate",
+      "_type": "request",
+      "parentId": "fld_comments",
+      "name": "Moderate Comment",
+      "description": "PUT /api/v1/articles/{articleId}/comments/{commentId}/moderate — solo ADMIN/SUPER_ADMIN (el servicio lo valida y devuelve 400 si no lo eres). status: APPROVED o REJECTED.",
+      "method": "PUT",
+      "url": "{{ _.base_url }}/api/v1/articles/1/comments/1/moderate",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"status\": \"REJECTED\"\n}"
+      },
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "authentication": { "type": "bearer", "token": "{{ _.token }}", "disabled": false },
+      "metaSortKey": -2
+    },
+    {
+      "_id": "req_comments_delete",
+      "_type": "request",
+      "parentId": "fld_comments",
+      "name": "Delete Comment",
+      "description": "DELETE /api/v1/articles/{articleId}/comments/{commentId} — el autor del comentario o cualquier ADMIN/SUPER_ADMIN. Si tiene respuestas, se borran en cascada (orphanRemoval en la relación 'replies').",
+      "method": "DELETE",
+      "url": "{{ _.base_url }}/api/v1/articles/1/comments/1",
+      "authentication": { "type": "bearer", "token": "{{ _.token }}", "disabled": false },
+      "metaSortKey": -1
+    },
+
+    {
+      "_id": "fld_ratings",
+      "_type": "request_group",
+      "parentId": "wrk_developteca",
+      "name": "Ratings (Sprint 4)",
+      "description": "Calificación 1-5 estrellas sobre /api/v1/articles/{articleId}/ratings. Un usuario solo puede tener un rating por artículo (constraint única article_id+user_id) — volver a calificar actualiza el valor existente (upsert).",
+      "metaSortKey": 1
+    },
+    {
+      "_id": "req_ratings_upsert",
+      "_type": "request",
+      "parentId": "fld_ratings",
+      "name": "Rate Article (upsert)",
+      "description": "PUT /api/v1/articles/{articleId}/ratings — requiere token. value entre 1 y 5. Si ya habías calificado este artículo, actualiza tu rating anterior en vez de crear uno nuevo. Devuelve el nuevo averageRating del artículo.",
+      "method": "PUT",
+      "url": "{{ _.base_url }}/api/v1/articles/1/ratings",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"value\": 5\n}"
+      },
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "authentication": { "type": "bearer", "token": "{{ _.token }}", "disabled": false },
+      "metaSortKey": -2
+    },
+    {
+      "_id": "req_ratings_get_mine",
+      "_type": "request",
+      "parentId": "fld_ratings",
+      "name": "Get My Rating",
+      "description": "GET /api/v1/articles/{articleId}/ratings/me — requiere token. 'myRating' viene null si todavía no has calificado este artículo (útil para precargar el selector de estrellas en el frontend).",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/v1/articles/1/ratings/me",
+      "authentication": { "type": "bearer", "token": "{{ _.token }}", "disabled": false },
+      "metaSortKey": -1
+    }
+  ]
+}
