@@ -5,7 +5,7 @@ spring:
     # ============= DATABASE =============
     datasource:
         url: jdbc:postgresql://localhost:5432/developteca_db
-        username: postgres
+        username: shomou
         password: 1234567
         driver-class-name: org.postgresql.Driver
 
@@ -36,6 +36,11 @@ spring:
                     auth: true
                     starttls:
                         enable: false
+
+    servlet:
+        multipart:
+            max-file-size: 5MB
+            max-request-size: 10MB
 
 # ============= JWT CONFIGURATION =============
 jwt:
