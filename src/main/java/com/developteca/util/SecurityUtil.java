@@ -23,4 +23,14 @@ public class SecurityUtil {
         return userRepository.findByEmail(userDetails.getUsername())
                 .orElseThrow(() -> new RuntimeException("Usuario autenticado no encontrado en BD"));
     }
+
+    public User getCurrentUserOrNull() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null || !(authentication.getPrincipal() instanceof UserDetails userDetails)) {
+            return null;
+        }
+
+        return userRepository.findByEmail(userDetails.getUsername()).orElse(null);
+    }
 }
