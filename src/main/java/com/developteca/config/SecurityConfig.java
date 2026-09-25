@@ -89,6 +89,9 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/v1/articles/stats/dashboard").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/v1/articles/manage/**").authenticated()
 
+                // Sonda de salud para Docker/orquestadores (sin detalles, ver management.* en application.yml)
+                .requestMatchers("/actuator/health").permitAll()
+
                 // Endpoints públicos de lectura
                 .requestMatchers(HttpMethod.GET, "/api/v1/categories").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/articles").permitAll()

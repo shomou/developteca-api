@@ -11,7 +11,91 @@ API REST en Spring Boot 4.1 para **Developteca**, con autenticación JWT y gesti
 - **Jackson 3** (`tools.jackson.*`) para serialización — Spring Boot 4 ya no usa Jackson 2/`com.fasterxml.jackson.*` para el `ObjectMapper` gestionado por Spring
 - **Lombok** (opcional)
 
-## Requisitos previos
+## Ejecución con Docker (recomendado)
+
+Este repositorio contiene el `docker-compose.yml` que levanta **todo el proyecto**: la API, PostgreSQL, Mailpit y el frontend. No necesitas Java, Maven, Node ni PostgreSQL instalados; solo Docker con el plugin Compose v2.
+
+### Estructura requerida
+
+El compose construye el frontend desde un repositorio hermano, así que los dos deben clonarse con esta estructura:
+
+```
+developteca/
+├── api/developteca-api    <- este repositorio
+└── web/developteca-web    <- github.com/shomou/developteca-web
+```
+
+```bash
+mkdir -p developteca/api developteca/web && cd developteca
+git clone https://github.com/shomou/developteca-api.git api/developteca-api
+git clone https://github.com/shomou/developteca-web.git web/developteca-web
+```
+
+### Arrancar
+
+```bash
+cd api/developteca-api
+cp .env.example .env
+```
+
+Edita `.env` con tus valores. Para el secreto de JWT:
+
+```bash
+openssl rand -base64 48
+```
+
+Y levanta todo:
+
+```bash
+docker compose up -d --build
+```
+
+| Servicio | URL | Notas |
+|---|---|---|
+| Frontend | http://localhost:4200 | nginx sirviendo el build de Angular |
+| API | http://localhost:8080/api/v1 | |
+| Salud | http://localhost:8080/actuator/health | |
+| Mailpit | http://localhost:8025 | Bandeja de correos de desarrollo |
+| PostgreSQL | `localhost:5433` | 5433 para no chocar con un Postgres local en 5432 |
+
+`DataSeeder` crea las 5 categorías en el primer arranque. Para tener un administrador, regístrate desde la web y cambia el rol:
+
+```bash
+docker compose exec db psql -U developteca -d developteca_db \
+  -c "UPDATE users SET role = 'ADMIN' WHERE email = 'tu@email.com';"
+```
+
+### Comandos habituales
+
+```bash
+docker compose ps                    # estado de los servicios
+docker compose logs -f api           # seguir los logs del backend
+docker compose up -d --build api     # reconstruir solo el backend
+docker compose down                  # apagar (conserva los datos)
+docker compose down -v               # apagar y BORRAR la base de datos
+```
+
+### Arquitectura de contenedores
+
+```
+navegador
+    |
+    |-- :4200 --> web (nginx + build de Angular)
+    |-- :8080 --> api (JRE 17 + jar de Spring Boot)
+                      |
+                      |-- db:5432      --> PostgreSQL 18   [volumen: db-data]
+                      |-- mailpit:1025 --> Mailpit (SMTP)
+                      |
+                      +-- /app/uploads --> imágenes         [volumen: uploads]
+```
+
+Dentro de la red de Docker los servicios se llaman por su nombre (`db`, `mailpit`); los puertos publicados existen solo para acceder desde el host.
+
+La imagen de la API es *multi-stage*: Maven y el JDK se usan solo para compilar y no llegan a la imagen final, que contiene únicamente el JRE 17 y el jar, ejecutándose con un usuario sin privilegios.
+
+Toda la configuración sensible (base de datos, `jwt.secret`) entra por variables de entorno, que Spring Boot superpone a `application.yml` mediante *relaxed binding* (`SPRING_DATASOURCE_URL` → `spring.datasource.url`, `JWT_SECRET` → `jwt.secret`). La misma imagen sirve para cualquier entorno sin recompilar. `.env` no se versiona; `.env.example` es la plantilla.
+
+## Requisitos previos (ejecución local sin Docker)
 
 - JDK 17
 - Maven 3.9+

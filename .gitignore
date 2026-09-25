@@ -34,3 +34,6 @@ build/
 
 ### Archivos subidos por usuarios (contenido, no código) ###
 uploads/
+
+### Variables de entorno locales (credenciales reales) ###
+.env

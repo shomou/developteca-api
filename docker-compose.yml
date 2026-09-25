@@ -1,0 +1,98 @@
+# Orquesta la API, su base de datos y el frontend (repositorio hermano).
+# Ejecutar desde este directorio. Estructura esperada:
+#
+#   developteca/
+#   ├── api/developteca-api   <- este repositorio (aquí vive el compose)
+#   └── web/developteca-web   <- github.com/shomou/developteca-web
+#
+# Nombre de proyecto fijo para que los volúmenes no dependan del nombre del directorio.
+name: developteca
+
+services:
+  db:
+    image: postgres:18
+    container_name: developteca-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ports:
+      # Publicado en 5433 para no chocar con el PostgreSQL que ya corre en tu máquina (5432).
+      - "5433:5432"
+    volumes:
+      # postgres:18+ espera el montaje en /var/lib/postgresql (no en .../data): guarda los
+      # datos en un subdirectorio por versión para permitir pg_upgrade entre versiones mayores.
+      - developteca-db-data:/var/lib/postgresql
+    healthcheck:
+      # Permite que el backend espere a que la base acepte conexiones, no solo a que el contenedor arranque.
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+    container_name: developteca-api
+    restart: unless-stopped
+    environment:
+      # Spring Boot mapea automáticamente SPRING_DATASOURCE_URL -> spring.datasource.url
+      # (y JWT_SECRET -> jwt.secret). Por eso la app se configura sin tocar el código:
+      # las variables de entorno tienen prioridad sobre application.yml.
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${DB_NAME}
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION: ${JWT_EXPIRATION}
+      # Mailpit captura los correos en vez de enviarlos: se leen en http://localhost:8025
+      SPRING_MAIL_HOST: mailpit
+      SPRING_MAIL_PORT: 1025
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH: "false"
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      # Arrancar Spring tarda ~20s; sin este margen el contenedor se marcaría
+      # como unhealthy antes de terminar de iniciar.
+      start_period: 40s
+    volumes:
+      # Las imágenes subidas viven fuera de la imagen: sin esto se pierden en cada rebuild.
+      - developteca-uploads:/app/uploads
+    depends_on:
+      db:
+        # Espera a que el healthcheck pase, no solo a que el contenedor exista:
+        # Postgres tarda unos segundos en aceptar conexiones y el backend moriría al arrancar.
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+
+  mailpit:
+    # Servidor SMTP falso para desarrollo: intercepta los correos de verificación
+    # y los muestra en una bandeja web, sin enviar nada real ni pedir credenciales.
+    image: axllent/mailpit:latest
+    container_name: developteca-mailpit
+    restart: unless-stopped
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # interfaz web
+
+  web:
+    build:
+      context: ../../web/developteca-web
+    container_name: developteca-web
+    restart: unless-stopped
+    ports:
+      # 4200 hacia fuera a propósito: el navegador corre en el host, así que las
+      # llamadas siguen yendo a localhost:8080 y el CORS del backend ya permite
+      # este origen. Al externalizar la URL de la API esto dejará de importar.
+      - "4200:80"
+    depends_on:
+      - api
+
+volumes:
+  developteca-db-data:
+  developteca-uploads:

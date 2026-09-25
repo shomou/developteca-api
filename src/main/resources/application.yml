@@ -63,3 +63,15 @@ app:
         dir: uploads
         max-file-size: 5242880
         allowed-types: image/jpeg,image/png,image/webp
+
+# ============== ACTUATOR ==================
+# Solo se expone /actuator/health, y sin detalles: basta para que Docker sepa si
+# el contenedor está vivo, sin revelar estado interno ni versiones a quien lo consulte.
+management:
+    endpoints:
+        web:
+            exposure:
+                include: health
+    endpoint:
+        health:
+            show-details: never

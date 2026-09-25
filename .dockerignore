@@ -1,0 +1,13 @@
+# Todo lo que esté aquí NO se envía al daemon de Docker al construir la imagen.
+# Importa por velocidad, y sobre todo para no filtrar secretos ni artefactos locales.
+
+target/
+uploads/
+.git/
+.gitignore
+.vscode/
+.idea/
+*.iml
+
+CLAUDE.md
+insomnia-collection.json
