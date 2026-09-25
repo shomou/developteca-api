@@ -18,15 +18,44 @@ mvn compile
 # Run the app
 mvn spring-boot:run
 
-# Run all tests
+# Run all tests (needs Docker: the integration tests use Testcontainers)
 mvn test
 
-# Run a single test class
-mvn test -Dtest=ClassNameTest
+# Only the fast unit tests, no Docker required
+mvn test -Dtest='*Test'
 
-# Run a single test method
+# Only the integration tests
+mvn test -Dtest='*IT'
+
+# Run a single test class / method
+mvn test -Dtest=ClassNameTest
 mvn test -Dtest=ClassNameTest#methodName
 ```
+
+## Testing
+
+70 tests. Naming convention: `*Test` = fast unit tests (Mockito, no Spring context), `*IT` = integration tests (full context + real PostgreSQL).
+
+**Integration tests use Testcontainers, not H2.** `IntegrationTestBase` starts a `postgres:18` container shared across all test classes. H2 was rejected deliberately: this codebase depends on PostgreSQL-specific behaviour (the `CAST(:search AS string)` workaround for pgjdbc's untyped-null handling, composite unique constraints), and H2 would let broken queries pass in tests and fail in production.
+
+**`api.version` must stay pinned in the surefire config.** docker-java (under Testcontainers) negotiates Docker API 1.32 by default, which Docker 25+ rejects with `client version 1.32 is too old. Minimum supported API version is 1.40`. It has to be a **system property** — the `DOCKER_API_VERSION` environment variable is not read by docker-java. Without it every integration test fails with `Could not find a valid Docker environment`, which misleadingly suggests Docker isn't installed.
+
+`SecurityBoundariesIT` exists to lock down bugs that were actually shipped: draft articles readable by guessing their slug, `/manage` falling through to the public `GET /articles/**` matcher, and `@CrossOrigin(origins = "*")` on `AuthController` overriding the restricted CORS bean. Each nested class maps to one of those.
+
+Assertions on exception messages should avoid accented characters — some messages in the codebase are written without accents (`"...este articulo"`), so match on an accent-free substring.
+
+## Dependency security
+
+`pom.xml` pins several versions **above** what the Spring Boot 4.1.0 BOM manages, to close known advisories: `tomcat.version` (3 critical auth CVEs), `postgresql.version` (channel-binding downgrade), `jackson-bom.version`, `log4j2.version`, plus an explicit `com.fasterxml.jackson.core:jackson-databind` in `dependencyManagement` (Jackson 2 arrives transitively via `jjwt-jackson` and isn't covered by the Jackson 3 BOM).
+
+**Re-check these on every Spring Boot upgrade** — once the BOM ships an equal or newer version, the overrides are dead weight. Scan with the OSV API:
+
+```bash
+mvn -q dependency:list -DincludeScope=runtime -DoutputFile=/tmp/deps.txt
+# then POST each name:version to https://api.osv.dev/v1/querybatch
+```
+
+As of 2026-09-25 both the backend (106 runtime dependencies) and the frontend (`npm audit`) report zero known vulnerabilities.
 
 Runs on port `8080`. With no profile set it activates `dev`, which defaults to a local PostgreSQL at `jdbc:postgresql://localhost:5432/developteca_db`. The whole stack (API, PostgreSQL, Mailpit, frontend) also runs with `docker compose up -d --build` from this directory — see the README.
 

@@ -93,6 +93,29 @@ Dentro de la red de Docker los servicios se llaman por su nombre (`db`, `mailpit
 
 La imagen de la API es *multi-stage*: Maven y el JDK se usan solo para compilar y no llegan a la imagen final, que contiene únicamente el JRE 17 y el jar, ejecutándose con un usuario sin privilegios.
 
+## Pruebas
+
+```bash
+mvn test                      # las 70 (requiere Docker)
+mvn test -Dtest='*Test'       # solo unitarias, sin Docker
+mvn test -Dtest='*IT'         # solo integración
+```
+
+| Tipo | Qué cubre |
+|---|---|
+| `*Test` | Unitarias con Mockito, sin contexto de Spring: utilidades y lógica de servicios |
+| `*IT` | Integración con contexto completo y **PostgreSQL real** vía Testcontainers |
+
+Los tests de integración usan un contenedor de PostgreSQL en vez de H2 a propósito: el código depende de comportamientos propios de PostgreSQL (el `CAST` de parámetros nulos en JPQL, restricciones únicas compuestas) que H2 no reproduce, así que una consulta rota pasaría los tests y fallaría en producción.
+
+`SecurityBoundariesIT` fija los límites de seguridad de la API. Cada bloque corresponde a un fallo que llegó a estar presente en el proyecto: borradores legibles adivinando el slug, endpoints de gestión accesibles sin token, y CORS abierto a cualquier origen en los endpoints de autenticación.
+
+## Seguridad de dependencias
+
+El `pom.xml` fija versiones por encima de las del BOM de Spring Boot 4.1.0 para cerrar vulnerabilidades conocidas: Tomcat (3 CVE críticos de autenticación), el driver de PostgreSQL (degradación del channel binding), Jackson y Log4j. Conviene revisarlas en cada actualización de Spring Boot: cuando el BOM incluya versiones iguales o superiores, esas líneas sobran.
+
+Backend y frontend reportan **cero vulnerabilidades conocidas**.
+
 ## Configuración por perfiles
 
 La configuración está repartida en tres archivos y **ninguno contiene credenciales**:
@@ -144,7 +167,15 @@ SPRING_PROFILES_ACTIVE=prod java -jar target/developteca-api-0.0.1-SNAPSHOT.jar
    CREATE DATABASE developteca_db;
    ```
 
-2. Ajusta credenciales en `src/main/resources/application.yml` si no usas los valores por defecto (`postgres` / `1234567`, `localhost:5432`).
+2. Crea el rol que espera el perfil `dev` por defecto:
+
+   ```sql
+   CREATE ROLE developteca WITH LOGIN PASSWORD 'developteca' CREATEDB;
+   GRANT ALL PRIVILEGES ON DATABASE developteca_db TO developteca;
+   GRANT ALL ON SCHEMA public TO developteca;
+   ```
+
+   O exporta `DB_URL`, `DB_USERNAME` y `DB_PASSWORD` apuntando a tu propia instalación.
 
 3. Compila y corre los tests:
 

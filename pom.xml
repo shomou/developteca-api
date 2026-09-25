@@ -28,7 +28,49 @@
 	</scm>
 	<properties>
 		<java.version>17</java.version>
+
+		<!-- Versiones por encima de las que fija el BOM de Spring Boot 4.1.0, para
+		     cerrar vulnerabilidades conocidas. Revisar en cada actualización de Spring
+		     Boot: si el BOM ya trae una versión igual o mayor, estas líneas sobran. -->
+
+		<!-- 11.0.22 arrastra 3 CVE críticos de autenticación (GHSA-9xv2-5v5q-p794,
+		     GHSA-gcx9-497g-6cp6, GHSA-h3x4-894j-xpx5) en los mecanismos DIGEST y FORM. -->
+		<tomcat.version>11.0.25</tomcat.version>
+
+		<!-- 42.7.11: degradación silenciosa del channel binding en la autenticación
+		     (GHSA-j92g-9f8w-j867, severidad alta). -->
+		<postgresql.version>42.7.12</postgresql.version>
+
+		<!-- 3.1.4: @JsonView se puede eludir en la deserialización (GHSA-5gvw-p9qm-jgwh). -->
+		<jackson-bom.version>3.1.5</jackson-bom.version>
+
+		<!-- 2.25.4: codificación incorrecta de valores flotantes no finitos al
+		     serializar MapMessage a JSON (GHSA-qv9r-c865-cp47). Llega por el puente
+		     SLF4J de Spring Boot; la app no usa log4j directamente. -->
+		<log4j2.version>2.25.5</log4j2.version>
 	</properties>
+	<dependencyManagement>
+		<dependencies>
+			<!-- El BOM del padre de Spring Boot no gestiona las versiones de
+			     org.testcontainers; se importa su propio BOM para no fijarlas a mano. -->
+			<!-- Jackson 2 entra de forma transitiva por jjwt-jackson (JWT). No lo cubre
+			     el BOM de Jackson 3, así que se fija aquí: 2.21.4 arrastra tres avisos
+			     de elusión de @JsonView y @JsonIgnoreProperties al deserializar. -->
+			<dependency>
+				<groupId>com.fasterxml.jackson.core</groupId>
+				<artifactId>jackson-databind</artifactId>
+				<version>2.21.5</version>
+			</dependency>
+			<dependency>
+				<groupId>org.testcontainers</groupId>
+				<artifactId>testcontainers-bom</artifactId>
+				<version>1.21.3</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
+
 	<dependencies>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -85,6 +127,23 @@
 			<artifactId>spring-boot-starter-webmvc-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+		<!-- Postgres real en los tests de integración: H2 no reproduce el
+		     comportamiento de pgjdbc con parámetros nulos ni los tipos propios. -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-testcontainers</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.testcontainers</groupId>
+			<artifactId>postgresql</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.testcontainers</groupId>
+			<artifactId>junit-jupiter</artifactId>
+			<scope>test</scope>
+		</dependency>
 		 <!-- JJWT API -->
     	<dependency>
         	<groupId>io.jsonwebtoken</groupId>
@@ -124,6 +183,21 @@
 							<artifactId>lombok</artifactId>
 						</exclude>
 					</excludes>
+				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<configuration>
+					<systemPropertyVariables>
+						<!-- docker-java (bajo Testcontainers) negocia por defecto la API 1.32,
+						     que Docker 25+ ya rechaza: "client version 1.32 is too old. Minimum
+						     supported API version is 1.40". Se fija la 1.41, soportada desde
+						     Docker 20.10 y aceptada por las versiones actuales.
+						     Debe ir como propiedad de sistema: la variable de entorno
+						     DOCKER_API_VERSION no la lee docker-java. -->
+						<api.version>1.41</api.version>
+					</systemPropertyVariables>
 				</configuration>
 			</plugin>
 			<plugin>

@@ -1,0 +1,30 @@
+# Perfil de tests. La URL, usuario y contraseña de la base los inyecta
+# Testcontainers en tiempo de ejecución (ver IntegrationTestBase).
+spring:
+    jpa:
+        hibernate:
+            ddl-auto: create-drop
+        show-sql: false
+
+    mail:
+        # No se envía nada; EmailService traga los fallos de envío.
+        host: localhost
+        port: 1025
+        properties:
+            mail:
+                smtp:
+                    auth: false
+
+jwt:
+    secret: secreto-exclusivo-de-los-tests-con-longitud-suficiente-para-hmac-sha256
+    expiration: 86400000
+
+logging:
+    level:
+        root: WARN
+        com.developteca: WARN
+        org.springframework.security: WARN
+
+app:
+    cors:
+        allowed-origins: http://localhost:4200
