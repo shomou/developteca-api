@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project overview
 
-Spring Boot 4.1 REST API (`developteca-api`) providing JWT-based authentication over a PostgreSQL database. Java 17, Maven build.
+Spring Boot 4.1 REST API (`developteca-api`) for Developteca, a dev blog: JWT auth, articles with images, nested comments and 1-5 star ratings, over PostgreSQL. Java 17, Maven build.
+
+Runs on port `8080`. With no profile set it activates `dev`, which defaults to a local PostgreSQL at `jdbc:postgresql://localhost:5432/developteca_db`. This repo also holds the `docker-compose.yml` for the **whole stack** (API, PostgreSQL, Mailpit, frontend): `docker compose up -d --build` — see the README.
 
 ## Commands
 
@@ -61,7 +63,6 @@ mvn -q dependency:list -DincludeScope=runtime -DoutputFile=/tmp/deps.txt
 
 As of 2026-09-25 both the backend (106 runtime dependencies) and the frontend (`npm audit`) report zero known vulnerabilities.
 
-Runs on port `8080`. With no profile set it activates `dev`, which defaults to a local PostgreSQL at `jdbc:postgresql://localhost:5432/developteca_db`. The whole stack (API, PostgreSQL, Mailpit, frontend) also runs with `docker compose up -d --build` from this directory — see the README.
 
 ## Working methodology (read before writing code here)
 
@@ -125,18 +126,18 @@ This is the single most important gotcha in this codebase. Spring Boot 4.1's `sp
 
 All authenticated endpoints (everything but list/detail) call `SecurityUtil.getCurrentUser()` (renamed from the earlier `getCurrentuser()` typo) to resolve the acting `User`, then delegate ownership/role checks to `ArticleService.checkOwnershipOrAdmin` (author, or `Role.ADMIN`/`Role.SUPER_ADMIN`) — `SecurityConfig` itself has no role-based matchers, just `anyRequest().authenticated()` for anything not explicitly `permitAll()`'d. `SecurityConfig` now also permits `GET /api/v1/articles`, `GET /api/v1/articles/**`, and `/uploads/**` (matching `WebConfig`'s static resource handler for uploaded images).
 
-Slugs are generated via `SlugUtil.toSlug()` + `ensureUniqueSlug` (appends `-1`, `-2`, ... on collision). **`SlugUtil`'s `WHITESPACE` pattern was inverted** — it was `[^\s]+` (matches non-whitespace runs) instead of `\s+` (matches whitespace runs), so any single-word input like `"Backend"` collapsed to a lone `-`, which the trailing `.replaceAll("^-|-$", "")` step then stripped to an **empty string**. Every slug came out `""`, and `DataSeeder` (a `CommandLineRunner` that seeds 5 default `Category` rows on first boot, skipped if `categoryRepository.count() > 0`) hit the `slug` unique constraint on the second insert and crashed startup. Now fixed to `\s+`; if slugs ever come back empty or collide unexpectedly, check this pattern first. `ImageService` (a `@Service`) stores uploaded files on local disk under `app.upload.dir` (`uploads/articles/{articleId}/{uuid}.{ext}`), validates size/content-type (throwing `InvalidImageException`), and `WebConfig` serves them back at `/uploads/**`. There is still no `spring.servlet.multipart.*` config in `application.yml`, so Spring's default multipart limits (1MB file / 10MB request) apply and are **smaller** than `app.upload.max-file-size` (5MB) — large uploads can get rejected before `ImageService` ever sees them. `ApiException` (message, or message+cause) is the general "not found"/business-rule exception used throughout `ArticleService`; `InvalidImageException` is specific to `ImageService` validation — both are still only ever caught by the generic `catch (Exception e)` blocks above, not typed per exception.
+Slugs are generated via `SlugUtil.toSlug()` + `ensureUniqueSlug` (appends `-1`, `-2`, ... on collision). **`SlugUtil`'s `WHITESPACE` pattern was inverted** — it was `[^\s]+` (matches non-whitespace runs) instead of `\s+` (matches whitespace runs), so any single-word input like `"Backend"` collapsed to a lone `-`, which the trailing `.replaceAll("^-|-$", "")` step then stripped to an **empty string**. Every slug came out `""`, and `DataSeeder` (a `CommandLineRunner` that seeds 5 default `Category` rows on first boot, skipped if `categoryRepository.count() > 0`) hit the `slug` unique constraint on the second insert and crashed startup. Now fixed to `\s+`; if slugs ever come back empty or collide unexpectedly, check this pattern first. `ImageService` (a `@Service`) stores uploaded files on local disk under `app.upload.dir` (`uploads/articles/{articleId}/{uuid}.{ext}`), validates size/content-type (throwing `InvalidImageException`), and `WebConfig` serves them back at `/uploads/**`. `ApiException` (message, or message+cause) is the general "not found"/business-rule exception used throughout `ArticleService`; `InvalidImageException` is specific to `ImageService` validation — both are still only ever caught by the generic `catch (Exception e)` blocks above, not typed per exception.
 
 ### Comments & Ratings (Sprint 4)
 
 `Comment` and `Rating` entities now back the `commentsCount`/`averageRating` counters on `Article` (they are still denormalized columns kept in sync by the services, not computed on read).
 
-**Comments** (`Comment`, `CommentStatus` enum: `APPROVED`/`REJECTED`):
+**Comments** (`Comment`, `CommentStatus` enum: `PENDING`/`APPROVED`/`REJECTED`):
 - Self-referential `@ManyToOne parentComment` + `@OneToMany(mappedBy = "parentComment", cascade = ALL, orphanRemoval = true) replies` — arbitrary nesting depth, and deleting a parent cascades to its replies. Without that `@OneToMany`, deleting a comment that has replies fails on the `parent_comment_id` foreign key.
 - **Enum-field gotcha (hit during development):** annotating `status` with `@ManyToOne`/`@JoinColumn` instead of `@Enumerated(EnumType.STRING)`/`@Column` fails startup with `Association 'Comment.status' targets the type 'CommentStatus' which is not an '@Entity' type` — Hibernate treats the enum as a relationship and looks for a non-existent entity. The cascading symptom is a wall of `UnsatisfiedDependencyException` on `jwtAuthenticationFilter` → `userDetailsServiceImpl` → `userRepository`, because the whole `EntityManagerFactory` failed to build; read past those to the first JPA error.
-- Moderation model is **auto-publish**: a new comment is `APPROVED` immediately; an admin can flip it to `REJECTED` to hide it without deleting. `CommentService.adjustCommentsCount` only moves `Article.commentsCount` on an actual `APPROVED ↔ REJECTED` transition, so re-moderating to the same status can't double-count.
-- `CommentService.getTreeByArticle` fetches all `APPROVED` comments for the article in one query and assembles the tree in memory (recursive `mapToTreeResponse`), rather than querying per nesting level.
-- Permissions: create = any authenticated user; delete = comment author **or** `ADMIN`/`SUPER_ADMIN`; moderate = `ADMIN`/`SUPER_ADMIN` only (`checkIsAdmin`).
+- Moderation depends on who posts: a **registered** user's comment is `APPROVED` immediately, an **anonymous** one is `PENDING` until an admin approves it. An admin can flip any comment to `REJECTED` to hide it without deleting. See the anonymous-comments section below for `adjustCommentsCount`.
+- `CommentService.getTreeByArticle` fetches the article's visible comments in one query and assembles the tree in memory (recursive `mapToTreeResponse`), rather than querying per nesting level.
+- Permissions: create = **anyone, no account needed**; delete = comment author **or** `ADMIN`/`SUPER_ADMIN`; moderate = `ADMIN`/`SUPER_ADMIN` only (`checkIsAdmin`).
 - `CommentController` at `/api/v1/articles/{articleId}/comments`: `GET` (public, tree), `POST` (auth), `PUT /{commentId}/moderate` (admin), `DELETE /{commentId}` (author or admin). `articleId` is present in the moderate/delete paths for RESTful nesting but the lookup is by `commentId`.
 
 **Anonymous comments.** `POST /articles/{id}/comments` is **public** — `SecurityConfig` permits it with a single-segment wildcard (`/api/v1/articles/*/comments`), deliberately not `**`, which would have opened `/comments/{id}/moderate` and `/comments/{id}` to the world too. The controller resolves the caller with `getCurrentUserOrNull()`.
@@ -151,7 +152,7 @@ Spam protection is a **honeypot**: `CommentCreateRequest.website`, a field the f
 
 **Ratings** (`Rating`): 1-5 `value`, with `@UniqueConstraint(columnNames = {"article_id", "user_id"})` enforcing one rating per user per article at the schema level. `RatingService.upsert` reuses the existing row when found (`.orElse(new Rating(...))`) so `save` becomes an `UPDATE` rather than violating that constraint, then recalculates `Article.averageRating` via `RatingRepository.averageByArticleId`, rounded with `BigDecimal.setScale(1, HALF_UP)` to match the column's `precision = 2, scale = 1`. `RatingController` at `/api/v1/articles/{articleId}/ratings` uses `PUT` (idempotent upsert, not `POST`) plus `GET /me`, which returns `myRating: null` when the user hasn't rated yet.
 
-**No `SecurityConfig` changes were needed for either feature.** The existing `GET /api/v1/articles/**` → `permitAll()` matcher already covers the nested public `GET .../comments`, and every other verb falls through to `anyRequest().authenticated()`. Role checks live in the services, consistent with the rest of the codebase.
+**Ratings needed no `SecurityConfig` change**, and neither did the comments *listing*: the existing `GET /api/v1/articles/**` → `permitAll()` matcher already covers the nested public `GET .../comments`, and every other verb falls through to `anyRequest().authenticated()`. Only the anonymous `POST` required a new matcher (see above). Role checks live in the services, consistent with the rest of the codebase.
 
 **Admin-visible hidden comments:** `GET .../comments` accepts `?includeRejected=true`, honored only when the caller is `ADMIN`/`SUPER_ADMIN` (checked in `CommentService.getTreeByArticle`, which also receives the caller). It's permissive rather than a 403 — a non-admin passing the flag just gets the normal public list. `CommentResponse` carries `status` so the frontend can grey out hidden comments. Because the tree is assembled from roots (`parentComment == null`), hiding a comment also hides its whole reply thread from the public view — by design, not a bug.
 
