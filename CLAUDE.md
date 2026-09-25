@@ -121,11 +121,27 @@ This required `SecurityUtil.getCurrentUserOrNull()` alongside the existing `getC
 
 All controller responses are wrapped in `ApiResponse` (`success`, `message`, `data`, `timestamp`, `errors`), constructed manually in each controller method rather than via a global exception handler / `@ControllerAdvice`. Errors are currently caught with generic `catch (Exception e)` blocks per-endpoint rather than centrally.
 
-### Configuration
+### Configuration — Spring profiles
+
+Three files, and **no credential lives in any of them**:
+
+- `application.yml` — common to every environment. Sets `spring.profiles.default: dev`, so a bare `mvn spring-boot:run` picks dev without extra flags.
+- `application-dev.yml` — every value is `${VAR:sensible-local-default}`, so the app runs locally with nothing configured. Includes `ddl-auto: update`, SQL logging, DEBUG, and a **dev-only JWT secret**.
+- `application-prod.yml` — every value is `${VAR}` with **no default on purpose**. A missing variable stops startup with `PlaceholderResolutionException` instead of silently booting with example credentials or pointing at the wrong database. Verified: running `-Dspring-boot.run.profiles=prod` without env vars fails on `MAIL_HOST`.
+
+Because the dev secret lives only in `application-dev.yml`, it cannot reach production by accident — prod has no fallback and demands `JWT_SECRET`.
+
+Prod also hardens what dev leaves open: `ddl-auto: validate` (refuses to start on schema drift rather than altering the database itself — `update` never drops or renames, it silently accumulates orphan columns), `show-sql: false`, `logging.level.org.springframework.security: WARN` (DEBUG logs authentication details), and `server.error.include-message: never` so exception text isn't returned to clients.
+
+**Env var naming is a project convention, not Spring's.** The YAML placeholders use `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `JWT_SECRET`, `MAIL_*`, `CORS_ORIGINS`. Spring's own relaxed binding (`SPRING_DATASOURCE_URL` → `spring.datasource.url`) still works and takes precedence, but mixing both styles makes it unclear where a value came from — stick to the custom names, which are the ones listed in `.env.example`.
+
+**CORS is configuration, not code.** `SecurityConfig` reads `app.cors.allowed-origins` via `@Value` into a `String[]`; it used to be a hardcoded `List.of("http://localhost:4200", ...)`, which meant recompiling to deploy anywhere. `AuthController`'s class-level `@CrossOrigin(origins = "*")` still contradicts this and should be removed.
 
 `application.yml` indentation matters: `jwt`, `logging`, and `server` blocks must be **top-level** keys, not nested under `spring:` — nesting them there silently changes property paths (e.g. `jwt.secret` becomes `spring.jwt.secret`) and breaks `@Value("${jwt.secret}")` injection with a `PlaceholderResolutionException` at startup.
 
-There's also a top-level `app.upload` block (`dir`, `max-file-size`, `allowed-types`) consumed by `ImageService` via `@Value`. No `spring.mail.*` or `spring.servlet.multipart.*` config exists yet, despite both `EmailService` and `ImageService` depending on related settings — see the multipart-size-limit gap noted above under Articles.
+There's also a top-level `app.upload` block (`dir`, `max-file-size`, `allowed-types`) consumed by `ImageService` via `@Value`. `spring.servlet.multipart` is set to 5MB/10MB to match it.
+
+**Still missing:** Flyway. With prod on `ddl-auto: validate`, schema changes have no mechanism to reach a production database — versioned migrations are the next step.
 
 ### IDE (VS Code) settings
 

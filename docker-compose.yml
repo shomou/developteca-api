@@ -37,18 +37,19 @@ services:
     container_name: developteca-api
     restart: unless-stopped
     environment:
-      # Spring Boot mapea automáticamente SPRING_DATASOURCE_URL -> spring.datasource.url
-      # (y JWT_SECRET -> jwt.secret). Por eso la app se configura sin tocar el código:
-      # las variables de entorno tienen prioridad sobre application.yml.
-      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${DB_NAME}
-      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      # Perfil de Spring. Con 'prod' la app exige todas estas variables y se niega
+      # a arrancar si falta alguna; 'dev' trae valores por defecto para uso local.
+      SPRING_PROFILES_ACTIVE: dev
+      # 'db' es el nombre del servicio en esta red de Docker, no localhost.
+      DB_URL: jdbc:postgresql://db:5432/${DB_NAME}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRATION: ${JWT_EXPIRATION}
       # Mailpit captura los correos en vez de enviarlos: se leen en http://localhost:8025
-      SPRING_MAIL_HOST: mailpit
-      SPRING_MAIL_PORT: 1025
-      SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH: "false"
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
+      CORS_ORIGINS: http://localhost:4200
     ports:
       - "8080:8080"
     healthcheck:

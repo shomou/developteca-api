@@ -1,0 +1,54 @@
+# ============================================================
+# Perfil de producción.
+# Ninguna variable tiene valor por defecto a propósito: si falta alguna,
+# la aplicación NO arranca. Es preferible un fallo inmediato y evidente a
+# arrancar con credenciales de ejemplo o apuntando a la base equivocada.
+# ============================================================
+spring:
+    datasource:
+        url: ${DB_URL}
+        username: ${DB_USERNAME}
+        password: ${DB_PASSWORD}
+        hikari:
+            maximum-pool-size: ${DB_POOL_SIZE:10}
+
+    jpa:
+        hibernate:
+            # La aplicación se niega a arrancar si el esquema no coincide con las
+            # entidades, en vez de modificarlo sola. Los cambios de esquema deben
+            # aplicarse con migraciones versionadas (Flyway), pendiente de añadir.
+            ddl-auto: validate
+        show-sql: false
+
+    mail:
+        host: ${MAIL_HOST}
+        port: ${MAIL_PORT}
+        username: ${MAIL_USERNAME}
+        password: ${MAIL_PASSWORD}
+        properties:
+            mail:
+                smtp:
+                    auth: true
+                    starttls:
+                        enable: true
+
+    web:
+        error:
+            # No filtrar mensajes de excepción ni detalles de validación al cliente:
+            # pueden revelar estructura interna y consultas.
+            include-message: never
+            include-binding-errors: never
+
+jwt:
+    secret: ${JWT_SECRET}
+
+logging:
+    level:
+        root: WARN
+        com.developteca: INFO
+        # DEBUG en Spring Security registra detalles de autenticación en los logs.
+        org.springframework.security: WARN
+
+app:
+    cors:
+        allowed-origins: ${CORS_ORIGINS}

@@ -1,0 +1,45 @@
+# ============================================================
+# Perfil de desarrollo.
+# Los valores por defecto apuntan a una instalación local, de modo que
+# `mvn spring-boot:run` funcione sin configurar nada. En Docker, el compose
+# sobreescribe estas variables para apuntar a los contenedores.
+# ============================================================
+spring:
+    datasource:
+        url: ${DB_URL:jdbc:postgresql://localhost:5432/developteca_db}
+        username: ${DB_USERNAME:developteca}
+        password: ${DB_PASSWORD:developteca}
+
+    jpa:
+        hibernate:
+            # Hibernate ajusta el esquema solo. Cómodo en desarrollo; en prod se usa
+            # `validate` porque `update` nunca borra ni renombra: acumula columnas
+            # huérfanas en silencio y modifica la base sin que nadie lo revise.
+            ddl-auto: update
+        show-sql: true
+
+    mail:
+        # Mailpit: captura los correos sin enviarlos. Bandeja en http://localhost:8025
+        host: ${MAIL_HOST:localhost}
+        port: ${MAIL_PORT:1025}
+        properties:
+            mail:
+                smtp:
+                    auth: false
+                    starttls:
+                        enable: false
+
+jwt:
+    # Secreto solo de desarrollo. El perfil prod NO define uno: exige JWT_SECRET
+    # del entorno, así que este valor no puede llegar a producción por descuido.
+    secret: ${JWT_SECRET:desarrollo-local-no-usar-en-produccion-minimo-256-bits-de-longitud}
+
+logging:
+    level:
+        root: INFO
+        com.developteca: DEBUG
+        org.springframework.security: DEBUG
+
+app:
+    cors:
+        allowed-origins: ${CORS_ORIGINS:http://localhost:4200,http://localhost:3000}

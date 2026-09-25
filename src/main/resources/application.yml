@@ -1,19 +1,21 @@
+# ============================================================
+# Configuración común a todos los entornos.
+# Lo que cambia entre entornos vive en application-dev.yml y
+# application-prod.yml. Aquí NO debe haber ninguna credencial.
+# ============================================================
 spring:
     application:
         name: developteca-api
 
-    # ============= DATABASE =============
+    # Perfil por defecto cuando no se indica ninguno (mvn spring-boot:run local).
+    # Se sobreescribe con SPRING_PROFILES_ACTIVE o --spring.profiles.active=prod
+    profiles:
+        default: dev
+
     datasource:
-        url: jdbc:postgresql://localhost:5432/developteca_db
-        username: shomou
-        password: 1234567
         driver-class-name: org.postgresql.Driver
 
-    # ============= JPA/ HIBERNATE =============
     jpa:
-        hibernate:
-            ddl-auto: update # Crea/actualiza tablas automáticamente
-        show-sql: true
         properties:
             hibernate:
                 format_sql: true
@@ -24,47 +26,25 @@ spring:
             include-message: always
             include-binding-errors: always
 
-    # ============= MAIL (placeholder local, no envía correos reales) =============
-    mail:
-        host: localhost
-        port: 1025
-        username: developteca
-        password: developteca
-        properties:
-            mail:
-                smtp:
-                    auth: true
-                    starttls:
-                        enable: false
-
     servlet:
         multipart:
+            # Debe ser >= app.upload.max-file-size, o Spring rechaza el archivo
+            # antes de que ImageService pueda validarlo.
             max-file-size: 5MB
             max-request-size: 10MB
 
-# ============= JWT CONFIGURATION =============
 jwt:
-    secret: tu_super_secret_key_minimo_256caracteres_cambiar_en_produccion
-    expiration: 86400000  # 24 horas en milisegundos
+    expiration: ${JWT_EXPIRATION:86400000}  # 24 horas en milisegundos
 
-# ============ LOGGING =============
-logging:
-    level:
-        root: INFO
-        com.developteca: DEBUG
-        org.springframework.security: DEBUG
-
-# ============== SERVER ====================
 server:
-    port: 8080
+    port: ${PORT:8080}
 
 app:
     upload:
-        dir: uploads
+        dir: ${UPLOAD_DIR:uploads}
         max-file-size: 5242880
         allowed-types: image/jpeg,image/png,image/webp
 
-# ============== ACTUATOR ==================
 # Solo se expone /actuator/health, y sin detalles: basta para que Docker sepa si
 # el contenedor está vivo, sin revelar estado interno ni versiones a quien lo consulte.
 management:

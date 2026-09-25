@@ -93,7 +93,42 @@ Dentro de la red de Docker los servicios se llaman por su nombre (`db`, `mailpit
 
 La imagen de la API es *multi-stage*: Maven y el JDK se usan solo para compilar y no llegan a la imagen final, que contiene únicamente el JRE 17 y el jar, ejecutándose con un usuario sin privilegios.
 
-Toda la configuración sensible (base de datos, `jwt.secret`) entra por variables de entorno, que Spring Boot superpone a `application.yml` mediante *relaxed binding* (`SPRING_DATASOURCE_URL` → `spring.datasource.url`, `JWT_SECRET` → `jwt.secret`). La misma imagen sirve para cualquier entorno sin recompilar. `.env` no se versiona; `.env.example` es la plantilla.
+## Configuración por perfiles
+
+La configuración está repartida en tres archivos y **ninguno contiene credenciales**:
+
+| Archivo | Para qué |
+|---|---|
+| `application.yml` | Común a todos los entornos. Activa `dev` por defecto. |
+| `application-dev.yml` | Valores por defecto para desarrollo local: la app arranca sin configurar nada. |
+| `application-prod.yml` | Sin valores por defecto: **si falta una variable, la app no arranca**. |
+
+Esa diferencia es deliberada. En producción es preferible un fallo inmediato y evidente a arrancar con credenciales de ejemplo o apuntando a la base equivocada. El secreto de JWT de desarrollo vive solo en `application-dev.yml`, así que no puede llegar a producción por descuido.
+
+`prod` además endurece lo que `dev` deja abierto: `ddl-auto: validate` en vez de `update` (la aplicación se niega a arrancar si el esquema no coincide, en lugar de modificar la base por su cuenta), sin logging de SQL, sin DEBUG en Spring Security, y sin devolver mensajes de excepción al cliente.
+
+### Variables de entorno
+
+| Variable | dev | prod |
+|---|---|---|
+| `DB_URL` | `jdbc:postgresql://localhost:5432/developteca_db` | obligatoria |
+| `DB_USERNAME` / `DB_PASSWORD` | `developteca` / `developteca` | obligatorias |
+| `JWT_SECRET` | secreto de desarrollo | obligatoria |
+| `JWT_EXPIRATION` | `86400000` (24 h) | `86400000` |
+| `MAIL_HOST` / `MAIL_PORT` | `localhost` / `1025` (Mailpit) | obligatorias |
+| `MAIL_USERNAME` / `MAIL_PASSWORD` | no se usan | obligatorias |
+| `CORS_ORIGINS` | `http://localhost:4200,http://localhost:3000` | obligatoria |
+| `PORT` | `8080` | `8080` |
+
+Los orígenes de CORS son configuración, no código: antes estaban fijos en `SecurityConfig` y había que recompilar para desplegar en otro dominio.
+
+Para ejecutar con el perfil de producción:
+
+```bash
+SPRING_PROFILES_ACTIVE=prod java -jar target/developteca-api-0.0.1-SNAPSHOT.jar
+```
+
+`.env` no se versiona; `.env.example` es la plantilla.
 
 ## Requisitos previos (ejecución local sin Docker)
 
