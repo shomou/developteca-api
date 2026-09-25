@@ -141,6 +141,21 @@ Prod also hardens what dev leaves open: `ddl-auto: validate` (refuses to start o
 
 There's also a top-level `app.upload` block (`dir`, `max-file-size`, `allowed-types`) consumed by `ImageService` via `@Value`. `spring.servlet.multipart` is set to 5MB/10MB to match it.
 
+### Secrets and history
+
+Early commits (`cece591`, and the diff that removed them in `0a84e63`) contain a real
+PostgreSQL password and the original `jwt.secret`, because `application.yml` was versioned
+with live values before the profile split. **Those credentials have been rotated and no
+longer work** — don't re-flag them as an active leak. History was deliberately not
+rewritten: rotation is what actually removes the risk, and force-pushing a public repo
+doesn't reliably erase cached commits anyway.
+
+Live secrets live in `.env` (gitignored, template in `.env.example`) and reach the app as
+environment variables. The values committed in `application-dev.yml` — including the JWT
+secret and the `developteca`/`developteca` database credentials — are **local-development
+defaults, not secrets**: they only apply to a database on a developer's own machine, and
+`application-prod.yml` provides no fallback for any of them.
+
 **Still missing:** Flyway. With prod on `ddl-auto: validate`, schema changes have no mechanism to reach a production database — versioned migrations are the next step.
 
 ### IDE (VS Code) settings
