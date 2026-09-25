@@ -9,7 +9,7 @@ Spring Boot 4.1 REST API (`developteca-api`) providing JWT-based authentication 
 ## Commands
 
 ```bash
-# Build (compiles + runs tests)
+# Build (compiles + runs tests; needs Docker, see Testing)
 mvn clean install
 
 # Compile only (fast check for compile errors)
@@ -34,11 +34,15 @@ mvn test -Dtest=ClassNameTest#methodName
 
 ## Testing
 
-70 tests. Naming convention: `*Test` = fast unit tests (Mockito, no Spring context), `*IT` = integration tests (full context + real PostgreSQL).
+122 tests. Naming convention: `*Test` = fast unit tests (Mockito, no Spring context), `*IT` = integration tests (full context + real PostgreSQL).
 
 **Integration tests use Testcontainers, not H2.** `IntegrationTestBase` starts a `postgres:18` container shared across all test classes. H2 was rejected deliberately: this codebase depends on PostgreSQL-specific behaviour (the `CAST(:search AS string)` workaround for pgjdbc's untyped-null handling, composite unique constraints), and H2 would let broken queries pass in tests and fail in production.
 
+**Surefire's `includes` must list all three patterns** (`*Test`, `*Tests`, `*IT`). By convention it only picks up the first two, so the integration tests silently stayed out of `mvn test` and only ran when invoked by name — a green build that had never executed them. Declaring `includes` also *replaces* the defaults, so dropping `**/*Tests.java` from the list quietly excludes `DeveloptecaApiApplicationTests`.
+
 **`api.version` must stay pinned in the surefire config.** docker-java (under Testcontainers) negotiates Docker API 1.32 by default, which Docker 25+ rejects with `client version 1.32 is too old. Minimum supported API version is 1.40`. It has to be a **system property** — the `DOCKER_API_VERSION` environment variable is not read by docker-java. Without it every integration test fails with `Could not find a valid Docker environment`, which misleadingly suggests Docker isn't installed.
+
+`AnonymousCommentTest` covers commenting without an account, including the eight status-transition combinations against the denormalised comment counter — the bug it was written for produced no error and no failing test.
 
 `SecurityBoundariesIT` exists to lock down bugs that were actually shipped: draft articles readable by guessing their slug, `/manage` falling through to the public `GET /articles/**` matcher, and `@CrossOrigin(origins = "*")` on `AuthController` overriding the restricted CORS bean. Each nested class maps to one of those.
 
@@ -58,6 +62,14 @@ mvn -q dependency:list -DincludeScope=runtime -DoutputFile=/tmp/deps.txt
 As of 2026-09-25 both the backend (106 runtime dependencies) and the frontend (`npm audit`) report zero known vulnerabilities.
 
 Runs on port `8080`. With no profile set it activates `dev`, which defaults to a local PostgreSQL at `jdbc:postgresql://localhost:5432/developteca_db`. The whole stack (API, PostgreSQL, Mailpit, frontend) also runs with `docker compose up -d --build` from this directory — see the README.
+
+## Working methodology (read before writing code here)
+
+The owner is learning Spring Boot hands-on and is intermediate level. Act as an **instructor**: explain the concept, give reference code, and let them implement it themselves — one phase at a time, waiting for them to compile, test and confirm before moving on. The exception is mechanical bulk work (find-and-replace refactors, config sweeps), which they prefer done directly.
+
+**Verify files on disk before building on any "done" claim.** Narrated changes have been lost before. Two recurring traps, both of which have bitten more than once:
+- `mvn spring-boot:run` does not reload Java changes, and `docker compose up` without `--build` serves a stale image. Both start cleanly while running old code, so the symptom is a fix that "doesn't work".
+- `ddl-auto: update` only *adds*. It never drops a `NOT NULL`, never widens an enum's `CHECK` constraint, never removes a column. Schema changes of that kind need a manual `ALTER TABLE` in every environment — which is the case for Flyway.
 
 ## Architecture
 
@@ -196,7 +208,3 @@ defaults, not secrets**: they only apply to a database on a developer's own mach
 `application-prod.yml` provides no fallback for any of them.
 
 **Still missing:** Flyway. With prod on `ddl-auto: validate`, schema changes have no mechanism to reach a production database — versioned migrations are the next step.
-
-### IDE (VS Code) settings
-
-`.vscode/settings.json` has `"java.compile.nullAnalysis.mode": "disabled"`. It was previously `"automatic"`, which made Eclipse JDT flag nearly every unbound instance method reference (`Article::getCreatedAt`, `ArticleImage::getIsFeatured`, etc.) with a false-positive "needs unchecked conversion to conform to '@NonNull X'" warning, since none of the codebase's classes carry null annotations. Don't re-enable it without also adopting null annotations project-wide, or the warnings come back everywhere.
