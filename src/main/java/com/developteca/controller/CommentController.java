@@ -47,7 +47,8 @@ public class CommentController {
     @PostMapping
     public ResponseEntity<?> create(@PathVariable Long articleId, @Valid @RequestBody CommentCreateRequest request) {
         try {
-            User currentUser = securityUtil.getCurrentUser();
+            // Devuelve null si no hay sesión, en vez de lanzar ClassCastException.
+            User currentUser = securityUtil.getCurrentUserOrNull();
             CommentResponse created = commentService.create(articleId, request, currentUser);
             return ResponseEntity.status(HttpStatus.CREATED).body(
                     new ApiResponse(true, "Comentario creado", created));

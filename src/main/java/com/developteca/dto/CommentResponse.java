@@ -14,6 +14,7 @@ public class CommentResponse {
     private LocalDateTime createdAt;
     private List<CommentResponse> replies = new ArrayList();
     private CommentStatus status;
+    private String authorName;
 
     public CommentResponse() {}
 
@@ -70,5 +71,13 @@ public class CommentResponse {
 
     public void setStatus(CommentStatus status) {
         this.status = status;
+    }
+
+    public String getAuthorName() {
+        return authorName;
+    }
+
+    public void setAuthorName(String authorName) {
+        this.authorName = authorName;
     }
 }

@@ -96,7 +96,7 @@ La imagen de la API es *multi-stage*: Maven y el JDK se usan solo para compilar 
 ## Pruebas
 
 ```bash
-mvn test                      # las 70 (requiere Docker)
+mvn test                      # las 122 (requiere Docker)
 mvn test -Dtest='*Test'       # solo unitarias, sin Docker
 mvn test -Dtest='*IT'         # solo integración
 ```
@@ -107,6 +107,8 @@ mvn test -Dtest='*IT'         # solo integración
 | `*IT` | Integración con contexto completo y **PostgreSQL real** vía Testcontainers |
 
 Los tests de integración usan un contenedor de PostgreSQL en vez de H2 a propósito: el código depende de comportamientos propios de PostgreSQL (el `CAST` de parámetros nulos en JPQL, restricciones únicas compuestas) que H2 no reproduce, así que una consulta rota pasaría los tests y fallaría en producción.
+
+`AnonymousCommentTest` cubre los comentarios sin cuenta: estado inicial según quién comenta, la trampa anti-spam, la visibilidad de los pendientes, los permisos sobre comentarios sin autor, y las 8 combinaciones de transición de estado frente al contador de comentarios.
 
 `SecurityBoundariesIT` fija los límites de seguridad de la API. Cada bloque corresponde a un fallo que llegó a estar presente en el proyecto: borradores legibles adivinando el slug, endpoints de gestión accesibles sin token, y CORS abierto a cualquier origen en los endpoints de autenticación.
 

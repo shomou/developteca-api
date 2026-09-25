@@ -30,8 +30,16 @@ public class Comment {
     private Article article;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(name = "user_id")
     private User author;
+
+    // Solo se rellenan cuando author es null (comentario anónimo).
+    @Column(name = "author_name", length = 100)
+    private String authorName;
+
+    // Nunca se expone en la API: sirve para identificar reincidentes o responder.
+    @Column(name = "author_email", length = 255)
+    private String authorEmail;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_comment_id")
@@ -39,7 +47,7 @@ public class Comment {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private CommentStatus status = CommentStatus.APPROVED;
+    private CommentStatus status = CommentStatus.PENDING;
 
     @OneToMany(mappedBy = "parentComment", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Comment> replies = new ArrayList<>();
@@ -56,6 +64,14 @@ public class Comment {
         this.content = content;
         this.article = article;
         this.author = author;
+        this.parentComment = parentComment;
+    }
+
+    public Comment(String content, Article article, String authorName, String authorEmail, Comment parentComment) {
+        this.content = content;
+        this.article = article;
+        this.authorName = authorName;
+        this.authorEmail = authorEmail;
         this.parentComment = parentComment;
     }
 
@@ -100,6 +116,22 @@ public class Comment {
 
     public void setAuthor(User author) {
         this.author = author;
+    }
+
+    public String getAuthorName() {
+        return authorName;
+    }
+
+    public void setAuthorName(String authorName) {
+        this.authorName = authorName;
+    }
+
+    public String getAuthorEmail() {
+        return authorEmail;
+    }
+
+    public void setAuthorEmail(String authorEmail) {
+        this.authorEmail = authorEmail;
     }
 
     public Comment getParentComment() {

@@ -104,6 +104,11 @@ public class SecurityConfig {
 
                 // Imágenes estáticas servidas públicamente
                 .requestMatchers("/uploads/**").permitAll()
+
+                // Comentar no requiere cuenta: los anónimos quedan en espera de aprobación
+                // (ver CommentService.create). El resto de operaciones sobre comentarios
+                // (moderar, eliminar) siguen exigiendo autenticación.
+                .requestMatchers(HttpMethod.POST, "/api/v1/articles/*/comments").permitAll()
                 
                 // Cualquier otra solicitud requiere autenticación
                 .anyRequest().authenticated()
